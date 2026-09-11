@@ -1,26 +1,25 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  color: #f3f4f6;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+@layer utilities {
+	@keyframes loading {
+		0% {
+    		transform: translateX(-100%);
+		}
+		100% {
+			transform: translateX(250%);
+  			}
+	}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+	.animate-loading {
+		animation: loading 0.8s ease infinite;
+	}
 }
