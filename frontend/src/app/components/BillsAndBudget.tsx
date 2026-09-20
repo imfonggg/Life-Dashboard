@@ -63,10 +63,12 @@ const BillsAndBudgetPage = () => {
 
   const upcomingBillsTotal = bills.reduce((sum, bill) => sum + Number(bill.amount), 0);
 
+  const recentTransactions = transactions.slice(0, 3);
+
   if (loading) {
-    return <div className="p-6 text-white">Loading Dashboard...</div>
+    return <div className="p-6 text-white">Loading Dashboard...</div>;
   }
-  
+
   return (
     <div className="min-h-screen bg-slate-900 p-6 text-white">
       <header className="mb-6">
@@ -145,51 +147,41 @@ const BillsAndBudgetPage = () => {
         <div className="rounded-xl bg-slate-800 p-5">
           <h3 className="mb-4 text-xl font-semibold">Upcoming Bills</h3>
 
-          <ul className="space-y-3">
-            <li className="flex items-center justify-between border-b border-slate-700 pb-2">
-              <div>
-                <p className="font-medium">Rent</p>
-                <p className="text-sm text-slate-400">Due: Sep 25</p>
-              </div>
-              <span className="font-semibold text-red-400">$1,600</span>
-            </li>
-
-            <li className="flex items-center justify-between border-b border-slate-700 pb-2">
-              <div>
-                <p className="font-medium">Electric</p>
-                <p className="text-sm text-slate-400">Due: Sep 27</p>
-              </div>
-              <span className="font-semibold text-yellow-400">$120</span>
-            </li>
-
-            <li className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Internet</p>
-                <p className="text-sm text-slate-400">Due: Sep 30</p>
-              </div>
-              <span className="font-semibold text-blue-400">$70</span>
-            </li>
-          </ul>
+          {bills.length === 0 ? (
+            <p className="text-sm text-slate-400">No upcoming bills yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {bills.slice(0, 3).map((bill) => (
+                <li key={bill.id} className="flex items-center justify-between border-b border-slate-700 pb-2">
+                  <div>
+                    <p className="font-medium">{bill.name}</p>
+                    <p className="text-sm text-slate-400">Due: {bill.dued_date}</p>
+                  </div>
+                  <span className="font-semibold text-red-400">${Number(bill.amount).toFixed(2)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 
       <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-xl bg-slate-800 p-5">
           <h3 className="mb-4 text-xl font-semibold">Recent Transactions</h3>
-          <ul className="space-y-3">
-            <li className="flex justify-between">
-              <span>Paycheck</span>
-              <span className="text-emerald-400">+$2,400</span>
-            </li>
-            <li className="flex justify-between">
-              <span>Rent</span>
-              <span className="text-red-400">-$1,600</span>
-            </li>
-            <li className="flex justify-between">
-              <span>Groceries</span>
-              <span className="text-red-400">-$180</span>
-            </li>
-          </ul>
+          {recentTransactions.length === 0 ? (
+            <p className="text-sm text-slate-400">No transactions yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {recentTransactions.map((transaction) => (
+                <li key={transaction.id} className="flex justify-between">
+                  <span>{transaction.description ?? "Transaction"}</span>
+                  <span className={transaction.type === "income" ? "text-emerald-400" : "text-red-400"}>
+                    {transaction.type === "income" ? "+" : "-"}${Number(transaction.amount).toFixed(2)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="rounded-xl bg-slate-800 p-5">
