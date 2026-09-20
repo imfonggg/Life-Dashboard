@@ -33,7 +33,7 @@ class Bill(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     name = Column(String, nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(Float, nullable=False, default=0.0)
     due_date = Column(Date, nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     status = Column(String, default="pending")  # pending, paid, overdue
@@ -50,7 +50,7 @@ class Budget(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     category_id = Column(Integer, ForeignKey("categories.id"))
     month = Column(String, nullable=False)  # e.g. "2026-09"
-    amount = Column(Float, nullable=False)
+    amount = Column(Float, nullable=False, default=0.0)
 
     user = relationship("User", back_populates="budgets")
     category = relationship("Category")
@@ -63,7 +63,7 @@ class Transaction(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     type = Column(String, nullable=False)  # income or expense
-    amount = Column(Float, nullable=False)
+    amount = Column(Float, nullable=False, default=0.0)
     description = Column(String, nullable=True)
     date = Column(Date, nullable=False)
 

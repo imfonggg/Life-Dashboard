@@ -1,4 +1,72 @@
+"use client";
+
+import {useState, useEffect} from "react";
+
+type Transaction = {
+  id: number;
+  user_id: number;
+  category_id?: number | null;
+  type: "income" | "expense";
+  amount: number;
+  description?: string | null;
+  date: string;
+};
+
+type Bill = {
+  id: number;
+  user_id: number;
+  name: string;
+  amount: number;
+  dued_date: string;
+  category_id?: number | null;
+  status?: string;
+  is_recurring?: boolean;
+};
+
 const BillsAndBudgetPage = () => {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [transactionRes, billRes] = await Promise.all([
+          fetch("http://localhost:8000/transactions"),
+          fetch("http://localhost:8000/bills"),
+        ]);
+
+        const transactionsData = await transactionRes.json();
+        const billsData = await billRes.json();
+
+        setTransactions(transactionsData);
+        setBills(billsData);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const monthlyIncome = transactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const monthlyExpenses = transactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const remainingBudget = monthlyIncome - monthlyExpenses;
+
+  const upcomingBillsTotal = bills.reduce((sum, bill) => sum + Number(bill.amount), 0);
+
+  if (loading) {
+    return <div className="p-6 text-white">Loading Dashboard...</div>
+  }
+  
   return (
     <div className="min-h-screen bg-slate-900 p-6 text-white">
       <header className="mb-6">
@@ -8,22 +76,22 @@ const BillsAndBudgetPage = () => {
       <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="rounded-xl bg-slate-800 p-4">
           <p className="text-sm text-slate-400">Monthly Income</p>
-          <h2 className="mt-2 text-2xl font-bold">$4,800</h2>
+          <h2 className="mt-2 text-2xl font-bold">${monthlyIncome.toFixed(2)}</h2>
         </div>
 
         <div className="rounded-xl bg-slate-800 p-4">
           <p className="text-sm text-slate-400">Monthly Expenses</p>
-          <h2 className="mt-2 text-2xl font-bold">$3,250</h2>
+          <h2 className="mt-2 text-2xl font-bold">${monthlyExpenses.toFixed(2)}</h2>
         </div>
 
         <div className="rounded-xl bg-slate-800 p-4">
           <p className="text-sm text-slate-400">Remaining Budget</p>
-          <h2 className="mt-2 text-2xl font-bold">$1,550</h2>
+          <h2 className="mt-2 text-2xl font-bold">${remainingBudget.toFixed(2)}</h2>
         </div>
 
         <div className="rounded-xl bg-slate-800 p-4">
           <p className="text-sm text-slate-400">Bills Due Soon</p>
-          <h2 className="mt-2 text-2xl font-bold">$920</h2>
+          <h2 className="mt-2 text-2xl font-bold">${upcomingBillsTotal.toFixed(2)}</h2>
         </div>
       </section>
 
