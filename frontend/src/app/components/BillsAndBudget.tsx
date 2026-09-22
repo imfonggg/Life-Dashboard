@@ -146,7 +146,6 @@ const BillsAndBudgetPage = () => {
 
         <div className="rounded-xl bg-slate-800 p-5">
           <h3 className="mb-4 text-xl font-semibold">Upcoming Bills</h3>
-
           {bills.length === 0 ? (
             <p className="text-sm text-slate-400">No upcoming bills yet.</p>
           ) : (
@@ -182,17 +181,6 @@ const BillsAndBudgetPage = () => {
               ))}
             </ul>
           )}
-        </div>
-
-        <div className="rounded-xl bg-slate-800 p-5">
-          <h3 className="mb-4 text-xl font-semibold">Savings Goal</h3>
-          <div className="mb-2 flex justify-between text-sm">
-            <span>Emergency Fund</span>
-            <span>$4,200 / $6,000</span>
-          </div>
-          <div className="h-3 rounded bg-slate-700">
-            <div className="h-3 w-[70%] rounded bg-emerald-500" />
-          </div>
         </div>
       </section>
     </div>
