@@ -17,7 +17,7 @@ type Bill = {
   user_id: number;
   name: string;
   amount: number;
-  dued_date: string;
+  due_date: string;
   category_id?: number | null;
   status?: string;
   is_recurring?: boolean;
@@ -31,16 +31,25 @@ const BillsAndBudgetPage = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
+        const token = localStorage.getItem("access_token");
+        const headers: HeadersInit = token
+          ? { Authorization: `Bearer ${token}` }
+          : {};
+
         const [transactionRes, billRes] = await Promise.all([
-          fetch("http://localhost:8000/transactions"),
-          fetch("http://localhost:8000/bills"),
+          fetch("http://localhost:8000/transactions", { headers }),
+          fetch("http://localhost:8000/bills", { headers }),
         ]);
 
-        const transactionsData = await transactionRes.json();
-        const billsData = await billRes.json();
+        if (!transactionRes.ok || !billRes.ok) {
+          throw new Error("You must log in before loading dashboard data.");
+        }
 
-        setTransactions(transactionsData);
-        setBills(billsData);
+        const transactionsData: unknown = await transactionRes.json();
+        const billsData: unknown = await billRes.json();
+
+        setTransactions(Array.isArray(transactionsData) ? transactionsData : []);
+        setBills(Array.isArray(billsData) ? billsData : []);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -154,7 +163,7 @@ const BillsAndBudgetPage = () => {
                 <li key={bill.id} className="flex items-center justify-between border-b border-slate-700 pb-2">
                   <div>
                     <p className="font-medium">{bill.name}</p>
-                    <p className="text-sm text-slate-400">Due: {bill.dued_date}</p>
+                    <p className="text-sm text-slate-400">Due: {bill.due_date}</p>
                   </div>
                   <span className="font-semibold text-red-400">${Number(bill.amount).toFixed(2)}</span>
                 </li>
