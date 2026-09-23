@@ -1,23 +1,26 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import BillsAndBudgetPage from "./BillsAndBudget";
-import { Sidebar } from "./sections/Sidebar";
+
+type RegistrationProps = {
+  onAuthenticated: () => void;
+};
 
 type AuthMode = "login" | "register";
 
-export default function Registration() {
+export default function Registration({ onAuthenticated }: RegistrationProps) {
   const [mode, setMode] = useState<AuthMode>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    setNotice("");
 
     if (mode === "register" && password.length < 12) {
       setError("Password must be at least 12 characters.");
@@ -40,25 +43,20 @@ export default function Registration() {
         throw new Error(data.detail ?? "Authentication failed.");
       }
 
-      localStorage.setItem("access_token", data.access_token);
-      setIsAuthenticated(true);
+      if (mode === "login") {
+        localStorage.setItem("access_token", data.access_token);
+        onAuthenticated();
+      } else {
+        setMode("login");
+        setPassword("");
+        setNotice("Registration successful. Log in with your new credentials.");
+      }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Authentication failed.");
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  if (isAuthenticated) {
-    return (
-      <div className="flex min-h-screen bg-slate-950 text-white">
-        <Sidebar />
-        <main className="flex-1">
-          <BillsAndBudgetPage />
-        </main>
-      </div>
-    );
-  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
@@ -88,6 +86,7 @@ export default function Registration() {
           </label>
 
           {mode === "register" && <p className="-mt-2 text-xs text-slate-500">Use at least 12 characters.</p>}
+          {notice && <p className="text-sm text-emerald-400" role="status">{notice}</p>}
           {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
 
           <button type="submit" disabled={isSubmitting} className="w-full rounded-lg bg-blue-500 px-4 py-3 font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50">
@@ -95,7 +94,7 @@ export default function Registration() {
           </button>
         </form>
 
-        <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }} className="mt-6 w-full text-center text-sm text-blue-400 hover:text-blue-300">
+        <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); setNotice(""); }} className="mt-6 w-full text-center text-sm text-blue-400 hover:text-blue-300">
           {mode === "login" ? "Need an account? Sign up" : "Already have an account? Log in"}
         </button>
       </section>

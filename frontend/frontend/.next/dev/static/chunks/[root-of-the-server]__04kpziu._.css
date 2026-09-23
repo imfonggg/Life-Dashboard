@@ -792,6 +792,10 @@
     background-color: var(--color-yellow-500);
   }
 
+  .object-cover {
+    object-fit: cover;
+  }
+
   .p-4 {
     padding: calc(var(--spacing) * 4);
   }
