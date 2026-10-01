@@ -1,6 +1,7 @@
 
 "use client";
 
+import Link from "next/link";
 import {
   IoIosHome,
   IoIosCash,
@@ -17,7 +18,7 @@ type SidebarProps = {
 
 export const Sidebar = ({ onLogin }: SidebarProps) => {
     const menuItems = [
-        { title: "Home", href: "/", icon: IoIosHome },
+        { title: "Home", href: "/home", icon: IoIosHome },
         { title: "Bills & Budget", href: "/bills_budget", icon: IoIosCash },
         { title: "Tasks", href: "/tasks", icon: IoIosList },
         { title: "Climbs", href: "/climbs", icon: IoIosNavigate },
@@ -34,14 +35,24 @@ export const Sidebar = ({ onLogin }: SidebarProps) => {
               const Icon = item.icon;
               return (
                 <li key={item.title}>
-                  <a
-                    href={item.href}
-                    onClick={item.title === "Login" ? (event) => { event.preventDefault(); onLogin(); } : undefined}
-                    className="flex items-center gap-2 hover:text-gray-500"
-                  >
-                    <Icon className="text-lg" />
-                    <span>{item.title}</span>
-                  </a>
+                  {item.title === "Login" ? (
+                    <button
+                      type="button"
+                      onClick={onLogin}
+                      className="flex items-center gap-2 hover:text-gray-500"
+                    >
+                      <Icon className="text-lg" />
+                      <span>{item.title}</span>
+                    </button>
+                  ) : (
+                    <Link
+                      href={item.href}
+                      className="flex items-center gap-2 hover:text-gray-500"
+                    >
+                      <Icon className="text-lg" />
+                      <span>{item.title}</span>
+                    </Link>
+                  )}
                 </li>
               );
             })}
