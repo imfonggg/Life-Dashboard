@@ -27,6 +27,15 @@ const BillsAndBudgetPage = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    user_id: 1,
+    name: "",
+    amount: "",
+    due_date: "",
+    category_id: "",
+    status: "",
+    is_recurring: true,
+  });
 
   useEffect(() => {
     const loadData = async () => {
