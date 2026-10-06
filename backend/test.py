@@ -2,16 +2,25 @@ from datetime import date
 
 from database import SessionLocal
 from models import User, Category, Bill, Budget, Transaction
+from pwdlib import PasswordHash
 
 db = SessionLocal()
+password_hash = PasswordHash.recommended()
 
 unique_email = "seed-user-2026@example.com"
 user = db.query(User).filter_by(email=unique_email).first()
 if user is None:
-    user = User(name="Test User", email=unique_email)
+    user = User(
+        name="Test User",
+        email=unique_email,
+        password_hash=password_hash.hash("password123"),
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
+elif user.password_hash is None:
+    user.password_hash = password_hash.hash("password123")
+    db.commit()
 
 # Create categories if they do not exist
 category_names = ["Housing", "Groceries", "Utilities", "Salary", "Savings"]

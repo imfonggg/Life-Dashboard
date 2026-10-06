@@ -1,6 +1,7 @@
 
 "use client";
 
+import Link from "next/link";
 import {
   IoIosHome,
   IoIosCash,
@@ -8,16 +9,22 @@ import {
   IoIosNavigate,
   IoIosPerson,
   IoIosSettings,
+  IoIosLogIn,
 } from "react-icons/io";
 
-export const Sidebar = () => {
+type SidebarProps = {
+  onLogin: () => void;
+};
+
+export const Sidebar = ({ onLogin }: SidebarProps) => {
     const menuItems = [
-        { title: "Home", href: "/", icon: IoIosHome },
+        { title: "Home", href: "/home", icon: IoIosHome },
         { title: "Bills & Budget", href: "/bills_budget", icon: IoIosCash },
         { title: "Tasks", href: "/tasks", icon: IoIosList },
         { title: "Climbs", href: "/climbs", icon: IoIosNavigate },
         { title: "Account", href: "/account", icon: IoIosPerson },
         { title: "Settings", href: "/settings", icon: IoIosSettings },
+        { title: "Login", href: "#login", icon: IoIosLogIn}
     ];
     return (
       <nav className="bg-gray-900 text-white flex w-64 h-screen p-4">
@@ -28,10 +35,24 @@ export const Sidebar = () => {
               const Icon = item.icon;
               return (
                 <li key={item.title}>
-                  <a href={item.href} className="flex items-center gap-2 hover:text-gray-500">
-                    <Icon className="text-lg" />
-                    <span>{item.title}</span>
-                  </a>
+                  {item.title === "Login" ? (
+                    <button
+                      type="button"
+                      onClick={onLogin}
+                      className="flex items-center gap-2 hover:text-gray-500"
+                    >
+                      <Icon className="text-lg" />
+                      <span>{item.title}</span>
+                    </button>
+                  ) : (
+                    <Link
+                      href={item.href}
+                      className="flex items-center gap-2 hover:text-gray-500"
+                    >
+                      <Icon className="text-lg" />
+                      <span>{item.title}</span>
+                    </Link>
+                  )}
                 </li>
               );
             })}
