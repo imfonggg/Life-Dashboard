@@ -1,6 +1,6 @@
 "use client";
 
-import {useState, useEffect} from "react";
+import {useState, useEffect, useRef} from "react";
 
 type Transaction = {
   id: number;
@@ -24,8 +24,13 @@ type Bill = {
 };
 
 const BillsAndBudgetPage = () => {
+  const billFileInputRef = useRef<HTMLInputElement>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
+  const [selectedBillFile, setSelectedBillFile] = useState<File | null>(null);
+  const [isUploadingBill, setIsUploadingBill] = useState(false);
+  const [billUploadError, setBillUploadError] = useState("");
+  const [billUploadNotice, setBillUploadNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [formData, setFormData] = useState({
@@ -91,6 +96,53 @@ const BillsAndBudgetPage = () => {
   const upcomingBillsTotal = bills.reduce((sum, bill) => sum + Number(bill.amount), 0);
 
   const recentTransactions = transactions.slice(0, 3);
+
+  const handleBillUpload = async () => {
+    if (!selectedBillFile) {
+      setBillUploadError("Choose a bill file before uploading.");
+      return;
+    }
+
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      setAuthRequired(true);
+      return;
+    }
+
+    setIsUploadingBill(true);
+    setBillUploadError("");
+    setBillUploadNotice("");
+
+    try {
+      const uploadData = new FormData();
+      uploadData.append("file", selectedBillFile);
+
+      const response = await fetch("http://localhost:8000/bills/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: uploadData,
+      });
+      const result = await response.json();
+
+      if (response.status === 401) {
+        setAuthRequired(true);
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(result.detail ?? "Unable to upload the bill file.");
+      }
+
+      setBillUploadNotice(result.message ?? "Bill file received.");
+      setSelectedBillFile(null);
+      if (billFileInputRef.current) {
+        billFileInputRef.current.value = "";
+      }
+    } catch (error) {
+      setBillUploadError(error instanceof Error ? error.message : "Unable to upload the bill file.");
+    } finally {
+      setIsUploadingBill(false);
+    }
+  };
 
   if (loading) {
     return <div className="p-6 text-white">Loading Dashboard...</div>;
@@ -220,6 +272,45 @@ const BillsAndBudgetPage = () => {
               ))}
             </ul>
           )}
+        </div>
+      </section>
+      <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-xl bg-slate-800 p-5">
+          <h3 className="mb-4 text-xl font-semibold">Upload Bill</h3>
+          <input
+            ref={billFileInputRef}
+            type="file"
+            accept=".pdf,image/jpeg,image/png"
+            className="hidden"
+            aria-label="Choose a bill file"
+            onChange={(event) => {
+              setSelectedBillFile(event.target.files?.[0] ?? null);
+              setBillUploadError("");
+              setBillUploadNotice("");
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => billFileInputRef.current?.click()}
+            className="rounded bg-slate-700 px-4 py-2 font-bold text-white hover:bg-slate-600"
+          >
+            Choose file
+          </button>
+          {selectedBillFile && (
+            <p className="mt-3 text-sm text-slate-300" role="status">
+              Selected: {selectedBillFile.name}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleBillUpload}
+            disabled={isUploadingBill}
+            className="ml-3 rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isUploadingBill ? "Uploading..." : "Upload bill"}
+          </button>
+          {billUploadError && <p className="mt-3 text-sm text-red-400" role="alert">{billUploadError}</p>}
+          {billUploadNotice && <p className="mt-3 text-sm text-emerald-400" role="status">{billUploadNotice}</p>}
         </div>
       </section>
     </div>

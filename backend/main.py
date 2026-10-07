@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import cast
 
 import jwt
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from pwdlib import PasswordHash
@@ -19,6 +19,8 @@ JWT_SECRET = os.getenv("JWT_SECRET", "development-only-change-this-secret")
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 MIN_PASSWORD_LENGTH = 12
+MAX_FILE_SIZE = 10 * 1024 * 1024 #10MB
+ALLOWED_CONTENTS_TYPE = {"application/pdf", "image/jpeg", "image/png"}
 
 app.add_middleware(
     CORSMiddleware,
@@ -165,3 +167,21 @@ def create_bill(
     db.commit()
     db.refresh(bill)
     return bill
+
+@app.post("/bills/upload")
+async def upload_bill_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    if file.content_type not in ALLOWED_CONTENTS_TYPE:
+        raise HTTPException(status_code=415, detail="Upload a PDF, JPEG, or PNG")
+    contents = await file.read(MAX_FILE_SIZE + 1)
+    if not contents:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty")
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too big, please only upload a file 10MB or less")
+    return {
+        "filename": file.filename,
+        "size_bytes": len(contents),
+        "message": "File received. Bill processing will be added soon"
+    }

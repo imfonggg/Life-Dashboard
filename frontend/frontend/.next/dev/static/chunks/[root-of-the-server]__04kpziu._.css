@@ -175,10 +175,12 @@
     --color-blue-300: #90c5ff;
     --color-blue-400: #54a2ff;
     --color-blue-500: #3080ff;
+    --color-blue-700: #1447e6;
     --color-purple-500: #ac4bff;
     --color-slate-300: #cad5e2;
     --color-slate-400: #90a1b9;
     --color-slate-500: #62748e;
+    --color-slate-600: #45556c;
     --color-slate-700: #314158;
     --color-slate-800: #1d293d;
     --color-slate-900: #0f172b;
@@ -225,10 +227,12 @@
       --color-blue-300: lab(77.5052% -6.4629 -36.42);
       --color-blue-400: lab(65.0361% -1.42062 -56.9803);
       --color-blue-500: lab(54.1736% 13.3368 -74.6839);
+      --color-blue-700: lab(36.9089% 35.0961 -85.6872);
       --color-purple-500: lab(52.0183% 66.11 -78.2316);
       --color-slate-300: lab(84.7652% -1.94535 -7.93337);
       --color-slate-400: lab(65.5349% -2.25151 -14.5072);
       --color-slate-500: lab(48.0876% -2.03595 -16.5814);
+      --color-slate-600: lab(35.5623% -1.74978 -15.4316);
       --color-slate-700: lab(26.9569% -1.47018 -15.6993);
       --color-slate-800: lab(16.132% -.318021 -14.6672);
       --color-slate-900: lab(7.78673% 1.82346 -15.0537);
@@ -556,6 +560,10 @@
     margin-top: calc(var(--spacing) * 2);
   }
 
+  .mt-3 {
+    margin-top: calc(var(--spacing) * 3);
+  }
+
   .mt-4 {
     margin-top: calc(var(--spacing) * 4);
   }
@@ -588,6 +596,10 @@
     margin-left: var(--spacing);
   }
 
+  .ml-3 {
+    margin-left: calc(var(--spacing) * 3);
+  }
+
   .block {
     display: block;
   }
@@ -598,6 +610,10 @@
 
   .grid {
     display: grid;
+  }
+
+  .hidden {
+    display: none;
   }
 
   .h-2 {
@@ -828,6 +844,10 @@
     padding-inline: calc(var(--spacing) * 6);
   }
 
+  .py-2 {
+    padding-block: calc(var(--spacing) * 2);
+  }
+
   .py-3 {
     padding-block: calc(var(--spacing) * 3);
   }
@@ -959,6 +979,14 @@
   @media (hover: hover) {
     .hover\:bg-blue-400:hover {
       background-color: var(--color-blue-400);
+    }
+
+    .hover\:bg-blue-700:hover {
+      background-color: var(--color-blue-700);
+    }
+
+    .hover\:bg-slate-600:hover {
+      background-color: var(--color-slate-600);
     }
 
     .hover\:text-blue-300:hover {
