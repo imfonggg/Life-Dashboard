@@ -27,6 +27,7 @@ const BillsAndBudgetPage = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authRequired, setAuthRequired] = useState(false);
   const [formData, setFormData] = useState({
     user_id: 1,
     name: "",
@@ -40,18 +41,25 @@ const BillsAndBudgetPage = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const token = localStorage.getItem("access_token");
-        const headers: HeadersInit = token
-          ? { Authorization: `Bearer ${token}` }
-          : {};
+        const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+
+        if (!token) {
+          setAuthRequired(true);
+          return;
+        }
+
+        const headers: HeadersInit = {
+          Authorization: `Bearer ${token}`,
+        };
 
         const [transactionRes, billRes] = await Promise.all([
           fetch("http://localhost:8000/transactions", { headers }),
           fetch("http://localhost:8000/bills", { headers }),
         ]);
 
-        if (!transactionRes.ok || !billRes.ok) {
-          throw new Error("You must log in before loading dashboard data.");
+        if (transactionRes.status === 401 || billRes.status === 401 || !transactionRes.ok || !billRes.ok) {
+          setAuthRequired(true);
+          return;
         }
 
         const transactionsData: unknown = await transactionRes.json();
@@ -61,6 +69,7 @@ const BillsAndBudgetPage = () => {
         setBills(Array.isArray(billsData) ? billsData : []);
       } catch (error) {
         console.error("Error fetching data:", error);
+        setAuthRequired(true);
       } finally {
         setLoading(false);
       }
@@ -85,6 +94,18 @@ const BillsAndBudgetPage = () => {
 
   if (loading) {
     return <div className="p-6 text-white">Loading Dashboard...</div>;
+  }
+
+  if (authRequired) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 p-6 text-white">
+        <div className="max-w-md rounded-xl border border-slate-700 bg-slate-800 p-6 text-center">
+          <h2 className="mb-3 text-2xl font-bold">Login required</h2>
+          <p className="text-slate-300">You must log in before loading your dashboard data.</p>
+          <p className="mt-4 text-sm text-slate-400">Use the login button in the sidebar to sign in.</p>
+        </div>
+      </div>
+    );
   }
 
   return (

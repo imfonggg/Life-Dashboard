@@ -57,7 +57,7 @@ python init_db.py
 Start the API server:
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The backend should be available at:
