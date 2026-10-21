@@ -27,7 +27,7 @@ The backend lives in the `backend/` directory and exposes a REST API that serves
 
 - `frontend/` – Next.js app and UI components
 - `backend/` – FastAPI API server and SQLite database models
-- `life-dashboard.db` – SQLite database used by the backend
+- `backend/life-dashboard.db` – local SQLite database, created by `python init_db.py` (not committed)
 
 ## Running the app
 
@@ -40,7 +40,13 @@ cd backend
 python -m venv .venv
 ```
 
-On Windows PowerShell:
+Activate it on macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Or on Windows PowerShell:
 
 ```powershell
 cd backend
