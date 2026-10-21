@@ -15,6 +15,7 @@ class User(Base):
     bills = relationship("Bill", back_populates="user")
     budgets = relationship("Budget", back_populates="user")
     transactions = relationship("Transaction", back_populates="user")
+    tasks = relationship("Task", back_populates="user")
 
 
 class Category(Base):
@@ -69,3 +70,17 @@ class Transaction(Base):
     date = Column(Date, nullable=False)
 
     user = relationship("User", back_populates="transactions")
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    due_date = Column(Date, nullable=True)
+    priority = Column(String, default="medium")  # low, medium, high
+    is_completed = Column(Boolean, default=False)
+
+    user = relationship("User", back_populates="tasks")

@@ -2,7 +2,7 @@
 from sqlalchemy import inspect, text
 
 from database import engine, Base
-from models import User, Category, Bill, Budget, Transaction
+from models import User, Category, Bill, Budget, Transaction, Task
 
 # Older databases were created before users.password_hash existed; add it in place.
 # On a fresh database the users table does not exist yet, so skip straight to create_all.

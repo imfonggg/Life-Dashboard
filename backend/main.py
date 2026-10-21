@@ -1,6 +1,6 @@
 import os
 from datetime import date, datetime, timedelta, timezone
-from typing import cast
+from typing import Literal, cast
 
 import jwt
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
@@ -10,7 +10,7 @@ from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from database import get_db
-from models import Transaction, Bill, User
+from models import Transaction, Bill, User, Task
 
 app = FastAPI()
 password_hash = PasswordHash.recommended()
@@ -44,6 +44,20 @@ class BillCreate(BaseModel):
     category_id: int | None = None
     status: str | None = "pending"
     is_recurring: bool | None = True
+
+class TaskCreate(BaseModel):
+    title: str
+    description: str | None = None
+    due_date: date | None = None
+    priority: Literal["low", "medium", "high"] = "medium"
+    is_completed: bool = False
+
+class TaskUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    due_date: date | None = None
+    priority: Literal["low", "medium", "high"] | None = None
+    is_completed: bool | None = None
 
 class RegisterRequest(BaseModel):
     name: str
@@ -185,3 +199,78 @@ async def upload_bill_file(
         "size_bytes": len(contents),
         "message": "File received. Bill processing will be added soon"
     }
+
+def get_user_task(task_id: int, db: Session, current_user: User) -> Task:
+    task = db.query(Task).filter(Task.id == task_id, Task.user_id == current_user.id).first()
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+@app.get("/tasks")
+def read_tasks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tasks = db.query(Task).filter(Task.user_id == current_user.id).all()
+    return tasks
+
+@app.post("/tasks")
+def create_task(
+    payload: TaskCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not payload.title.strip():
+        raise HTTPException(status_code=400, detail="Task title is required")
+    task = Task(
+        user_id = current_user.id,
+        title = payload.title.strip(),
+        description = payload.description,
+        due_date = payload.due_date,
+        priority = payload.priority,
+        is_completed = payload.is_completed
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return task
+
+@app.get("/tasks/{task_id}")
+def read_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return get_user_task(task_id, db, current_user)
+
+@app.patch("/tasks/{task_id}")
+def update_task(
+    task_id: int,
+    payload: TaskUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = get_user_task(task_id, db, current_user)
+    updates = payload.model_dump(exclude_unset=True)
+    if "title" in updates:
+        if updates["title"] is None or not updates["title"].strip():
+            raise HTTPException(status_code=400, detail="Task title is required")
+        updates["title"] = updates["title"].strip()
+    for field in ("priority", "is_completed"):
+        if field in updates and updates[field] is None:
+            raise HTTPException(status_code=400, detail=f"Task {field} cannot be empty")
+    for field, value in updates.items():
+        setattr(task, field, value)
+    db.commit()
+    db.refresh(task)
+    return task
+
+@app.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = get_user_task(task_id, db, current_user)
+    db.delete(task)
+    db.commit()
