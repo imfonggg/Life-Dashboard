@@ -1,11 +1,15 @@
 # Python
 backend/venv/
-backend/__pycache__/
+backend/.venv/
+__pycache__/
 *.pyc
 
+# SQLite database (created locally by backend/init_db.py)
+*.db
+
 # Node
-frontend/node_modules/
-frontend/.next/
+node_modules/
+.next/
 
 # Env
 .env
