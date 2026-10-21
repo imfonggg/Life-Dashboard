@@ -1,16 +1,17 @@
 import os
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal, cast
 
 import jwt
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from database import get_db
-from models import Transaction, Bill, User, Task
+from models import Transaction, Bill, User, Category, Budget
 
 app = FastAPI()
 password_hash = PasswordHash.recommended()
@@ -21,6 +22,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 MIN_PASSWORD_LENGTH = 12
 MAX_FILE_SIZE = 10 * 1024 * 1024 #10MB
 ALLOWED_CONTENTS_TYPE = {"application/pdf", "image/jpeg", "image/png"}
+CATEGORY_TYPES = {"expense", "income", "savings"}
+MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,19 +49,14 @@ class BillCreate(BaseModel):
     status: str | None = "pending"
     is_recurring: bool | None = True
 
-class TaskCreate(BaseModel):
-    title: str
-    description: str | None = None
-    due_date: date | None = None
-    priority: Literal["low", "medium", "high"] = "medium"
-    is_completed: bool = False
+class CategoryCreate(BaseModel):
+    name: str
+    type: str = "expense"
 
-class TaskUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    due_date: date | None = None
-    priority: Literal["low", "medium", "high"] | None = None
-    is_completed: bool | None = None
+class BudgetCreate(BaseModel):
+    category_id: int
+    month: str
+    amount: float
 
 class RegisterRequest(BaseModel):
     name: str
@@ -71,6 +70,23 @@ class LoginRequest(BaseModel):
 def create_access_token(user_id: int) -> str:
     expires = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     return jwt.encode({"sub": str(user_id), "exp": expires}, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def get_owned_category(db: Session, user: User, category_id: int | None) -> Category | None:
+    if category_id is None:
+        return None
+    category = db.query(Category).filter(Category.id == category_id, Category.user_id == user.id).first()
+    if category is None:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return category
+
+def serialize_budget(budget: Budget) -> dict:
+    return {
+        "id": budget.id,
+        "category_id": budget.category_id,
+        "category_name": budget.category.name if budget.category else None,
+        "month": budget.month,
+        "amount": budget.amount,
+    }
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -168,6 +184,7 @@ def create_bill(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    get_owned_category(db, current_user, payload.category_id)
     bill = Bill(
         user_id = current_user.id,
         name = payload.name,
@@ -181,6 +198,71 @@ def create_bill(
     db.commit()
     db.refresh(bill)
     return bill
+
+@app.get("/categories")
+def read_categories(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return db.query(Category).filter(Category.user_id == current_user.id).order_by(Category.name).all()
+
+@app.post("/categories")
+def create_category(
+    payload: CategoryCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Category name is required")
+    if payload.type not in CATEGORY_TYPES:
+        raise HTTPException(status_code=400, detail="Category type must be expense, income, or savings")
+    existing = db.query(Category).filter(Category.user_id == current_user.id, Category.name == name).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Category already exists")
+
+    category = Category(user_id=current_user.id, name=name, type=payload.type)
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+@app.get("/budgets")
+def read_budgets(
+    month: str | None = Query(default=None, pattern=MONTH_PATTERN),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(Budget).filter(Budget.user_id == current_user.id)
+    if month:
+        query = query.filter(Budget.month == month)
+    return [serialize_budget(budget) for budget in query.all()]
+
+@app.post("/budgets")
+def create_or_update_budget(
+    payload: BudgetCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not re.match(MONTH_PATTERN, payload.month):
+        raise HTTPException(status_code=400, detail="Month must look like YYYY-MM")
+    if payload.amount < 0:
+        raise HTTPException(status_code=400, detail="Budget amount cannot be negative")
+    get_owned_category(db, current_user, payload.category_id)
+
+    # One budget per category per month: posting again updates the amount
+    budget = db.query(Budget).filter(
+        Budget.user_id == current_user.id,
+        Budget.category_id == payload.category_id,
+        Budget.month == payload.month,
+    ).first()
+    if budget is None:
+        budget = Budget(user_id=current_user.id, category_id=payload.category_id, month=payload.month)
+        db.add(budget)
+    budget.amount = payload.amount
+    db.commit()
+    db.refresh(budget)
+    return serialize_budget(budget)
 
 @app.post("/bills/upload")
 async def upload_bill_file(
