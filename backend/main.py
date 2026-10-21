@@ -11,7 +11,7 @@ from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from database import get_db
-from models import Transaction, Bill, User, Category, Budget
+from models import Transaction, Bill, User, Category, Budget, Task
 
 app = FastAPI()
 password_hash = PasswordHash.recommended()
@@ -57,6 +57,20 @@ class BudgetCreate(BaseModel):
     category_id: int
     month: str
     amount: float
+
+class TaskCreate(BaseModel):
+    title: str
+    description: str | None = None
+    due_date: date | None = None
+    priority: Literal["low", "medium", "high"] = "medium"
+    is_completed: bool = False
+
+class TaskUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    due_date: date | None = None
+    priority: Literal["low", "medium", "high"] | None = None
+    is_completed: bool | None = None
 
 class RegisterRequest(BaseModel):
     name: str
