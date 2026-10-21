@@ -2,7 +2,7 @@
 from sqlalchemy import inspect, text
 
 from database import engine, Base
-from models import User, Category, Bill, Budget, Transaction
+from models import User, Category, Bill, Budget, Transaction, Task
 
 with engine.begin() as connection:
 	columns = {column["name"] for column in inspect(engine).get_columns("users")}
