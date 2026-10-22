@@ -1,5 +1,7 @@
 # backend/models.py
-from sqlalchemy import Column, Integer, String, Float, Boolean, Date, ForeignKey
+from datetime import datetime, timezone
+
+from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
@@ -16,6 +18,7 @@ class User(Base):
     budgets = relationship("Budget", back_populates="user")
     transactions = relationship("Transaction", back_populates="user")
     tasks = relationship("Task", back_populates="user")
+    bill_files = relationship("BillFile", back_populates="user")
 
 
 class Category(Base):
@@ -40,9 +43,27 @@ class Bill(Base):
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     status = Column(String, default="pending")  # pending, paid, overdue
     is_recurring = Column(Boolean, default=True)
+    bill_file_id = Column(Integer, ForeignKey("bill_files.id"), nullable=True)
 
     user = relationship("User", back_populates="bills")
     category = relationship("Category")
+    bill_file = relationship("BillFile")
+
+
+class BillFile(Base):
+    __tablename__ = "bill_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    original_filename = Column(String, nullable=False)
+    stored_path = Column(String, nullable=False)  # relative to the uploads folder
+    content_type = Column(String, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    uploaded_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    extracted_text = Column(Text, nullable=True)
+    extraction_method = Column(String, nullable=True)  # pattern, pattern+claude, or none
+
+    user = relationship("User", back_populates="bill_files")
 
 
 class Budget(Base):

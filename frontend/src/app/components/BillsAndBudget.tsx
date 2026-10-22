@@ -37,6 +37,21 @@ type Budget = {
   amount: number;
 };
 
+type ExtractedBill = {
+  name: string | null;
+  amount: number | null;
+  due_date: string | null;
+  category_id: number | null;
+  category_name: string | null;
+};
+
+type BillUploadResult = {
+  file_id: number;
+  filename: string;
+  extracted: ExtractedBill;
+  message: string;
+};
+
 const API_URL = "http://localhost:8000";
 const BAR_COLORS = ["bg-emerald-500", "bg-blue-500", "bg-yellow-500", "bg-purple-500", "bg-pink-500", "bg-cyan-500"];
 
@@ -74,6 +89,8 @@ const BillsAndBudgetPage = () => {
   const [isSavingBill, setIsSavingBill] = useState(false);
   const [billFormError, setBillFormError] = useState("");
   const [billFormNotice, setBillFormNotice] = useState("");
+  // The uploaded file the form was prefilled from, linked to the bill when it is saved
+  const [prefilledFrom, setPrefilledFrom] = useState<{ fileId: number; filename: string } | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -187,6 +204,7 @@ const BillsAndBudgetPage = () => {
           due_date: formData.due_date,
           category_id: formData.category_id ? Number(formData.category_id) : null,
           is_recurring: formData.is_recurring,
+          bill_file_id: prefilledFrom?.fileId ?? null,
         }),
       });
 
@@ -201,6 +219,7 @@ const BillsAndBudgetPage = () => {
 
       setBills((current) => [...current, result as Bill]);
       setFormData(emptyBillForm);
+      setPrefilledFrom(null);
       setBillFormNotice(`Added ${result.name}.`);
     } catch (error) {
       setBillFormError(error instanceof Error ? error.message : "Unable to add the bill.");
@@ -244,7 +263,19 @@ const BillsAndBudgetPage = () => {
         throw new Error(result.detail ?? "Unable to upload the bill file.");
       }
 
-      setBillUploadNotice(result.message ?? "Bill file received.");
+      // Prefill the Add Bill form so the user can check the details before saving
+      const { file_id, filename, extracted, message } = result as BillUploadResult;
+      setFormData({
+        ...emptyBillForm,
+        name: extracted.name ?? "",
+        amount: extracted.amount != null ? extracted.amount.toFixed(2) : "",
+        due_date: extracted.due_date ?? "",
+        category_id: extracted.category_id != null ? String(extracted.category_id) : "",
+      });
+      setPrefilledFrom({ fileId: file_id, filename });
+      setBillFormError("");
+      setBillFormNotice("");
+      setBillUploadNotice(message ?? "Bill file received.");
       setSelectedBillFile(null);
       if (billFileInputRef.current) {
         billFileInputRef.current.value = "";
@@ -372,6 +403,21 @@ const BillsAndBudgetPage = () => {
 
         <div className="rounded-xl bg-slate-800 p-5">
           <h3 className="mb-4 text-xl font-semibold">Add Bill</h3>
+          {prefilledFrom && (
+            <p className="mb-3 text-sm text-slate-300" role="status">
+              Filled in from {prefilledFrom.filename}. Check each field before adding.{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setPrefilledFrom(null);
+                  setFormData(emptyBillForm);
+                }}
+                className="text-blue-400 underline hover:text-blue-300"
+              >
+                Clear
+              </button>
+            </p>
+          )}
           <form onSubmit={handleAddBill} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-sm text-slate-300 sm:col-span-2">
               Name

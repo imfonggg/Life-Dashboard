@@ -17,3 +17,6 @@ node_modules/
 
 # Local project notes
 /document.txt
+
+# Uploaded bill files (saved by the backend)
+backend/uploads/
