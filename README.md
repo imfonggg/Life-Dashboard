@@ -91,3 +91,6 @@ http://localhost:3000
 - The frontend is configured to talk to the backend at `http://localhost:8000`.
 - The backend uses SQLite, so no external database service is required.
 - If the database has not been created yet, run `python init_db.py` inside `backend/` before starting the API.
+- Uploaded bills are saved in `backend/uploads/` (set `UPLOAD_DIR` to change this). Text is read from digital PDFs and used to fill in the Add Bill form; scanned PDFs and images are saved but not read yet.
+- Bill details are found with pattern matching, which needs no setup. Optionally, set `ANTHROPIC_API_KEY` and Claude fills in any fields the patterns missed. Without a key the app works the same, just on patterns alone.
+- After pulling these changes, run `python init_db.py` again so it adds the new `bill_files` table and the `bills.bill_file_id` column.

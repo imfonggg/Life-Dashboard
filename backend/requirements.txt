@@ -6,3 +6,5 @@ pwdlib[argon2]
 PyJWT
 email-validator
 python-multipart
+pdfplumber>=0.11,<1.0
+anthropic

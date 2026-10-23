@@ -1,17 +1,21 @@
 import os
 import re
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal, cast
 
 import jwt
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
 from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from bill_processing import extract_bill_details, extract_pdf_text
 from database import get_db
-from models import Transaction, Bill, User, Category, Budget, Task
+from models import Transaction, Bill, BillFile, User, Category, Budget, Task
 
 app = FastAPI()
 password_hash = PasswordHash.recommended()
@@ -22,6 +26,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 MIN_PASSWORD_LENGTH = 12
 MAX_FILE_SIZE = 10 * 1024 * 1024 #10MB
 ALLOWED_CONTENTS_TYPE = {"application/pdf", "image/jpeg", "image/png"}
+FILE_EXTENSIONS = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"))
 CATEGORY_TYPES = {"expense", "income", "savings"}
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 
@@ -48,6 +54,7 @@ class BillCreate(BaseModel):
     category_id: int | None = None
     status: str | None = "pending"
     is_recurring: bool | None = True
+    bill_file_id: int | None = None
 
 class CategoryCreate(BaseModel):
     name: str
@@ -92,6 +99,14 @@ def get_owned_category(db: Session, user: User, category_id: int | None) -> Cate
     if category is None:
         raise HTTPException(status_code=404, detail="Category not found")
     return category
+
+def get_owned_bill_file(db: Session, user: User, bill_file_id: int | None) -> BillFile | None:
+    if bill_file_id is None:
+        return None
+    bill_file = db.query(BillFile).filter(BillFile.id == bill_file_id, BillFile.user_id == user.id).first()
+    if bill_file is None:
+        raise HTTPException(status_code=404, detail="Bill file not found")
+    return bill_file
 
 def serialize_budget(budget: Budget) -> dict:
     return {
@@ -199,6 +214,7 @@ def create_bill(
     current_user: User = Depends(get_current_user),
 ):
     get_owned_category(db, current_user, payload.category_id)
+    get_owned_bill_file(db, current_user, payload.bill_file_id)
     bill = Bill(
         user_id = current_user.id,
         name = payload.name,
@@ -206,7 +222,8 @@ def create_bill(
         due_date = payload.due_date,
         category_id = payload.category_id,
         status = payload.status,
-        is_recurring = payload.is_recurring
+        is_recurring = payload.is_recurring,
+        bill_file_id = payload.bill_file_id
     )
     db.add(bill)
     db.commit()
@@ -281,6 +298,7 @@ def create_or_update_budget(
 @app.post("/bills/upload")
 async def upload_bill_file(
     file: UploadFile = File(...),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     if file.content_type not in ALLOWED_CONTENTS_TYPE:
@@ -290,11 +308,73 @@ async def upload_bill_file(
         raise HTTPException(status_code=400, detail="The uploaded file is empty")
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="File too big, please only upload a file 10MB or less")
+    is_pdf = file.content_type == "application/pdf"
+    if is_pdf and not contents.startswith(b"%PDF-"):
+        raise HTTPException(status_code=400, detail="That file does not look like a PDF")
+
+    # Save under a random name so user-supplied filenames never touch the disk path
+    stored_path = os.path.join("bills", str(current_user.id), f"{uuid.uuid4().hex}{FILE_EXTENSIONS[file.content_type]}")
+    full_path = os.path.join(UPLOAD_DIR, stored_path)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    with open(full_path, "wb") as saved_file:
+        saved_file.write(contents)
+
+    extracted_text = None
+    extraction_method = "none"
+    extracted = {"name": None, "amount": None, "due_date": None, "category_id": None, "category_name": None}
+    if is_pdf:
+        try:
+            extracted_text = await run_in_threadpool(extract_pdf_text, full_path)
+        except Exception as error:
+            print(f"Could not read text from {stored_path}: {error}")
+        if extracted_text:
+            categories = db.query(Category).filter(Category.user_id == current_user.id, Category.type != "income").all()
+            category_rows = [{"id": category.id, "name": category.name} for category in categories]
+            extracted, extraction_method = await run_in_threadpool(extract_bill_details, extracted_text, category_rows)
+
+    bill_file = BillFile(
+        user_id=current_user.id,
+        original_filename=file.filename or "bill",
+        stored_path=stored_path,
+        content_type=file.content_type,
+        size_bytes=len(contents),
+        extracted_text=extracted_text,
+        extraction_method=extraction_method,
+    )
+    db.add(bill_file)
+    db.commit()
+    db.refresh(bill_file)
+
+    found_any = any(value is not None for value in extracted.values())
+    if not is_pdf:
+        message = "File saved. Reading images is not supported yet, so please fill in the bill details."
+    elif not extracted_text:
+        message = "File saved, but no text was found in it (it may be a scan). Please fill in the bill details."
+    elif found_any:
+        message = "File saved. Check the details in the Add Bill form, then add the bill."
+    else:
+        message = "File saved, but the bill details could not be found. Please fill them in."
+
     return {
-        "filename": file.filename,
-        "size_bytes": len(contents),
-        "message": "File received. Bill processing will be added soon"
+        "file_id": bill_file.id,
+        "filename": bill_file.original_filename,
+        "size_bytes": bill_file.size_bytes,
+        "extraction_method": extraction_method,
+        "extracted": extracted,
+        "message": message,
     }
+
+@app.get("/bills/files/{file_id}")
+def download_bill_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    bill_file = get_owned_bill_file(db, current_user, file_id)
+    full_path = os.path.join(UPLOAD_DIR, cast(str, bill_file.stored_path))
+    if not os.path.exists(full_path):
+        raise HTTPException(status_code=404, detail="Bill file is missing from storage")
+    return FileResponse(full_path, media_type=cast(str, bill_file.content_type), filename=cast(str, bill_file.original_filename))
 
 def get_user_task(task_id: int, db: Session, current_user: User) -> Task:
     task = db.query(Task).filter(Task.id == task_id, Task.user_id == current_user.id).first()
