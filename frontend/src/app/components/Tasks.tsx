@@ -266,6 +266,10 @@ const TasksPage = () => {
               rows={3}
               className="w-full rounded bg-slate-700 px-3 py-2 text-white placeholder:text-slate-400"
             />
+            <div className="flex gap-3 font-semibold">
+              <div className="min-w-0 flex-1">Due Date</div>
+              <div className="min-w-0 justify-between">Difficulty</div>
+            </div>
             <div className="flex gap-3">
               <input
                 type="date"
