@@ -46,6 +46,16 @@ The backend lives in the `backend/` directory and exposes a REST API that serves
 
 ## Running the app
 
+### Quick start (Windows)
+
+After the one-time setup below (virtual environment, `pip install`, `python init_db.py`), start both servers with:
+
+```powershell
+.\start-dev.ps1
+```
+
+It opens one window for the backend and one for the frontend. Close a window to stop that server.
+
 ### 1) Start the backend
 
 Open a terminal in the `backend/` folder and create a virtual environment if needed:
