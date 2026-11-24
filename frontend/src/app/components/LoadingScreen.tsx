@@ -1,37 +1,47 @@
 "use client";
 
-import {useEffect, useState} from "react";
-import React from "react";
+import { useEffect, useState } from "react";
+
+const WELCOME_TEXT = "Welcome to Life Dashboard";
+const TYPING_DELAY_MS = 100; // per letter
+const PAUSE_AFTER_TYPING_MS = 1000;
 
 type LoadingScreenProps = {
-    onComplete: () => void;
+  onComplete: () => void;
 };
 
+/** Types out the welcome text one letter at a time, waits a moment, then calls onComplete. */
 export const LoadingScreen = ({ onComplete }: LoadingScreenProps) => {
-    const [text, setText] = React.useState("");
-    const fullText = "Welcome to Life Dashboard";
+  const [text, setText] = useState("");
 
-    useEffect(() => {
-        let index = 0
-        const interval = setInterval(() => {
-            setText((fullText.substring(0, index)));
-            index++;
-            if (index > fullText.length) {
-                clearInterval(interval);
+  useEffect(() => {
+    let index = 0;
+    let finishTimeout: ReturnType<typeof setTimeout> | undefined;
 
-                setTimeout(() => {
-                    onComplete();
-                }, 1000);
-            }
-        }, 100)
-        
-        return () => clearInterval(interval);
-    }, [onComplete]);
+    const interval = setInterval(() => {
+      setText(WELCOME_TEXT.substring(0, index));
+      index++;
+      if (index > WELCOME_TEXT.length) {
+        clearInterval(interval);
+        finishTimeout = setTimeout(onComplete, PAUSE_AFTER_TYPING_MS);
+      }
+    }, TYPING_DELAY_MS);
 
-    return <div className="fixed inset-0 z-50 text-gray-100 flex flex-col items-center justify-center">
-        <div className="mb-4 text-4xl font-mono font-bold">{text}<span className="animate-blink ml-1">| </span></div>
-        <div className="w-[200px] h-[2px] bg-gray-800 rounded relative overflow-hidden">
-            <div className="animate-loading w-[40%] h-full bg-blue-500"></div>
-        </div>
+    return () => {
+      clearInterval(interval);
+      clearTimeout(finishTimeout);
+    };
+  }, [onComplete]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center text-gray-100">
+      <div className="mb-4 font-mono text-4xl font-bold">
+        {text}
+        <span className="animate-blink ml-1">| </span>
+      </div>
+      <div className="relative h-[2px] w-[200px] overflow-hidden rounded bg-gray-800">
+        <div className="animate-loading h-full w-[40%] bg-blue-500"></div>
+      </div>
     </div>
-}
+  );
+};

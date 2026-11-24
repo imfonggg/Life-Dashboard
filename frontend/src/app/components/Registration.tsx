@@ -1,6 +1,12 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useState, type FormEvent } from "react";
+import { API_URL, errorDetail, errorMessage, saveToken } from "../lib/api";
+
+// Must match MIN_PASSWORD_LENGTH in backend/config.py
+const MIN_PASSWORD_LENGTH = 12;
+const INPUT_CLASS =
+  "mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-400";
 
 type RegistrationProps = {
   onAuthenticated: () => void;
@@ -17,13 +23,19 @@ export default function Registration({ onAuthenticated }: RegistrationProps) {
   const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const switchMode = () => {
+    setMode(mode === "login" ? "register" : "login");
+    setError("");
+    setNotice("");
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setNotice("");
 
-    if (mode === "register" && password.length < 12) {
-      setError("Password must be at least 12 characters.");
+    if (mode === "register" && password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
 
@@ -32,7 +44,7 @@ export default function Registration({ onAuthenticated }: RegistrationProps) {
     try {
       const endpoint = mode === "login" ? "/auth/login" : "/auth/register";
       const body = mode === "login" ? { email, password } : { name, email, password };
-      const response = await fetch(`http://localhost:8000${endpoint}`, {
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -40,11 +52,11 @@ export default function Registration({ onAuthenticated }: RegistrationProps) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail ?? "Authentication failed.");
+        throw new Error(errorDetail(data, "Authentication failed."));
       }
 
       if (mode === "login") {
-        localStorage.setItem("access_token", data.access_token);
+        saveToken(data.access_token);
         onAuthenticated();
       } else {
         setMode("login");
@@ -52,7 +64,7 @@ export default function Registration({ onAuthenticated }: RegistrationProps) {
         setNotice("Registration successful. Log in with your new credentials.");
       }
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Authentication failed.");
+      setError(errorMessage(requestError, "Authentication failed."));
     } finally {
       setIsSubmitting(false);
     }
@@ -71,21 +83,21 @@ export default function Registration({ onAuthenticated }: RegistrationProps) {
           {mode === "register" && (
             <label className="block text-sm font-medium text-slate-300">
               Name
-              <input required value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-400" />
+              <input required value={name} onChange={(event) => setName(event.target.value)} className={INPUT_CLASS} />
             </label>
           )}
 
           <label className="block text-sm font-medium text-slate-300">
             Email
-            <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-400" />
+            <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className={INPUT_CLASS} />
           </label>
 
           <label className="block text-sm font-medium text-slate-300">
             Password
-            <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-400" />
+            <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} className={INPUT_CLASS} />
           </label>
 
-          {mode === "register" && <p className="-mt-2 text-xs text-slate-500">Use at least 12 characters.</p>}
+          {mode === "register" && <p className="-mt-2 text-xs text-slate-500">Use at least {MIN_PASSWORD_LENGTH} characters.</p>}
           {notice && <p className="text-sm text-emerald-400" role="status">{notice}</p>}
           {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
 
@@ -94,7 +106,7 @@ export default function Registration({ onAuthenticated }: RegistrationProps) {
           </button>
         </form>
 
-        <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); setNotice(""); }} className="mt-6 w-full text-center text-sm text-blue-400 hover:text-blue-300">
+        <button type="button" onClick={switchMode} className="mt-6 w-full text-center text-sm text-blue-400 hover:text-blue-300">
           {mode === "login" ? "Need an account? Sign up" : "Already have an account? Log in"}
         </button>
       </section>

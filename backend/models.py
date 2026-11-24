@@ -1,4 +1,4 @@
-# backend/models.py
+"""Database tables. Every user-owned table has a user_id, and routes always filter on it."""
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, ForeignKey
