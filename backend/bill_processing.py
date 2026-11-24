@@ -1,13 +1,19 @@
-# backend/bill_processing.py
-# Reads text out of uploaded bill PDFs and guesses the bill's name, amount, due date and category.
-# Pattern matching runs first and needs nothing extra. If ANTHROPIC_API_KEY is set, Claude fills in
-# whatever the patterns missed; without a key the app still works on patterns alone.
+"""Read text out of uploaded bill PDFs and guess the bill's name, amount, due date and category.
+
+Pattern matching runs first and needs nothing extra. If ANTHROPIC_API_KEY is set, Claude fills in
+whatever the patterns missed; without a key the app still works on patterns alone.
+
+The entry points are extract_pdf_text() and extract_bill_details(); everything else is a helper.
+"""
 import json
+import logging
 import os
 import re
 from datetime import date, datetime
 
 import pdfplumber
+
+logger = logging.getLogger(__name__)
 
 MAX_PDF_PAGES = 10
 MAX_TEXT_FOR_CLAUDE = 20000
@@ -103,14 +109,24 @@ CATEGORY_ALIASES = {
 
 GENERIC_HEADER_WORDS = {"invoice", "statement", "bill", "page", "account", "summary", "customer", "date"}
 
+# What extract_bill_details returns when nothing could be read; the frontend expects every key
+EMPTY_BILL_DETAILS: dict = {"name": None, "amount": None, "due_date": None, "category_id": None, "category_name": None}
+
+
+# Reading the PDF
+
 
 def extract_pdf_text(path: str) -> str:
+    """Return the text of the first MAX_PDF_PAGES pages (empty for scanned PDFs with no text layer)."""
     with pdfplumber.open(path) as pdf:
         pages = [page.extract_text() or "" for page in pdf.pages[:MAX_PDF_PAGES]]
     return "\n".join(pages).strip()
 
 
+# Parsing single values
+
 def parse_date(value: str) -> date | None:
+    """Parse a date in any of DATE_FORMATS, or return None."""
     cleaned = re.sub(r"\s+", " ", value.replace(",", " ").replace(".", " ")).strip()
     for fmt in DATE_FORMATS:
         try:
@@ -121,6 +137,7 @@ def parse_date(value: str) -> date | None:
 
 
 def parse_money(value: str) -> float | None:
+    """Parse "$1,234.56" style text into a positive number, or return None."""
     try:
         amount = float(value.replace(",", "").replace("$", "").strip())
     except ValueError:
@@ -128,7 +145,10 @@ def parse_money(value: str) -> float | None:
     return amount if amount > 0 else None
 
 
+# Finding fields with patterns
+
 def find_amount(text: str) -> float | None:
+    """Return the first amount that follows one of AMOUNT_LABELS."""
     lowered = text.lower()
     for label in AMOUNT_LABELS:
         for match in re.finditer(re.escape(label), lowered):
@@ -143,6 +163,7 @@ def find_amount(text: str) -> float | None:
 
 
 def find_due_date(text: str) -> date | None:
+    """Return the first date that follows one of DUE_DATE_LABELS."""
     lowered = text.lower()
     for label in DUE_DATE_LABELS:
         for match in re.finditer(re.escape(label), lowered):
@@ -156,6 +177,7 @@ def find_due_date(text: str) -> date | None:
 
 
 def find_vendor(text: str) -> tuple[str | None, str | None]:
+    """Return (vendor name, kind of bill). The kind is only known for KNOWN_VENDORS."""
     lowered = text.lower()
     for keyword, (vendor, kind) in KNOWN_VENDORS.items():
         if keyword in lowered:
@@ -175,6 +197,7 @@ def find_vendor(text: str) -> tuple[str | None, str | None]:
 
 
 def guess_category_kind(text: str) -> str | None:
+    """Return the CATEGORY_KEYWORDS kind whose keywords appear most often in the text."""
     lowered = text.lower()
     best_kind, best_hits = None, 0
     for kind, keywords in CATEGORY_KEYWORDS.items():
@@ -185,6 +208,7 @@ def guess_category_kind(text: str) -> str | None:
 
 
 def match_category(kind: str | None, categories: list[dict]) -> dict | None:
+    """Map a kind of bill onto one of the user's own categories using CATEGORY_ALIASES."""
     if not kind:
         return None
     by_name = {category["name"].strip().lower(): category for category in categories}
@@ -204,6 +228,8 @@ def parse_bill_text(text: str) -> dict:
     }
 
 
+# Optional Claude fallback
+
 def claude_is_configured() -> bool:
     if not os.getenv("ANTHROPIC_API_KEY"):
         return False
@@ -215,6 +241,7 @@ def claude_is_configured() -> bool:
 
 
 def extract_with_claude(text: str, category_names: list[str]) -> dict | None:
+    """Ask Claude for the bill fields. Returns None on any failure so the caller keeps its pattern results."""
     import anthropic
 
     schema = {
@@ -243,16 +270,19 @@ def extract_with_claude(text: str, category_names: list[str]) -> dict | None:
             messages=[{"role": "user", "content": prompt}],
         )
     except anthropic.APIError as error:
-        print(f"Claude bill extraction failed: {error}")
+        logger.warning("Claude bill extraction failed: %s", error)
         return None
     if response.stop_reason != "end_turn":
+        logger.warning("Claude bill extraction stopped early (stop_reason=%s)", response.stop_reason)
         return None
     text_block = next((block.text for block in response.content if block.type == "text"), None)
     if text_block is None:
+        logger.warning("Claude bill extraction returned no text")
         return None
     try:
         data = json.loads(text_block)
     except json.JSONDecodeError:
+        logger.warning("Claude bill extraction returned invalid JSON")
         return None
     return {
         "name": data.get("vendor"),
@@ -262,8 +292,14 @@ def extract_with_claude(text: str, category_names: list[str]) -> dict | None:
     }
 
 
+# Entry point
+
 def extract_bill_details(text: str, categories: list[dict]) -> tuple[dict, str]:
-    """Return the fields to prefill the add-bill form with, and which method found them."""
+    """Return the fields to prefill the Add Bill form with, and which method found them.
+
+    categories is the user's own non-income categories as [{"id": ..., "name": ...}].
+    The method is "pattern" or "pattern+claude".
+    """
     fields = parse_bill_text(text)
     category = match_category(fields.pop("category_kind"), categories)
     method = "pattern"

@@ -9,7 +9,6 @@ Life Dashboard is a personal finance dashboard app for tracking transactions, bi
 - React 19
 - TypeScript
 - Tailwind CSS
-- Material Tailwind
 - React Icons
 
 The frontend lives in the `frontend/` directory and runs locally on port `3000`.
@@ -25,9 +24,25 @@ The backend lives in the `backend/` directory and exposes a REST API that serves
 
 ## Project structure
 
-- `frontend/` – Next.js app and UI components
-- `backend/` – FastAPI API server and SQLite database models
-- `backend/life-dashboard.db` – local SQLite database, created by `python init_db.py` (not committed)
+### Backend (`backend/`)
+- `main.py` – creates the FastAPI app and plugs in the routers
+- `routers/` – the API routes, one file per area: `auth.py`, `money.py` (transactions, bills, categories, budgets), `bill_files.py` (uploads), `tasks.py`
+- `config.py` – settings and constants (JWT secret, upload limits, allowed origins)
+- `security.py` – password hashing, login tokens, and `get_current_user`
+- `ownership.py` – look up a record only if it belongs to the logged-in user
+- `schemas.py` – request bodies the API accepts
+- `models.py` / `database.py` – SQLAlchemy tables and the database session
+- `bill_processing.py` – reads bill details out of uploaded PDFs
+- `init_db.py` – creates or updates the database tables
+- `seed_data.py` – optional sample data for trying the app out
+- `life-dashboard.db` – local SQLite database, created by `python init_db.py` (not committed)
+
+### Frontend (`frontend/src/app/`)
+- `(dashboard)/` – the pages (`home`, `bills_budget`, `tasks`) and the layout that handles login
+- `components/` – one component per page (`BillsAndBudget.tsx`, `Tasks.tsx`), with their pieces in `components/bills/` and `components/tasks/`
+- `components/ui/` – small pieces shared between pages
+- `lib/api.ts` – the backend URL, saved login token, and request helpers
+- `lib/format.ts` – money and date formatting
 
 ## Running the app
 
@@ -58,6 +73,12 @@ Then install dependencies and initialize the database:
 ```bash
 pip install -r requirements.txt
 python init_db.py
+```
+
+Optionally, add sample data (log in as `seed-user-2026@example.com` / `password123`):
+
+```bash
+python seed_data.py
 ```
 
 Start the API server:

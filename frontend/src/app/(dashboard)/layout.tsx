@@ -4,6 +4,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { LoadingScreen } from "../components/LoadingScreen";
 import Registration from "../components/Registration";
 import { Sidebar } from "../components/sections/Sidebar";
+import { API_URL, authHeaders, clearToken, getToken } from "../lib/api";
+
+/**
+ * Wraps every dashboard page. Order of screens:
+ * typing animation -> checking the saved login -> login form (if needed) -> sidebar + page.
+ */
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -12,10 +18,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
+    // Stops state updates if the layout unmounts before the check finishes
     let isActive = true;
 
     const checkSession = async () => {
-      const token = localStorage.getItem("access_token");
+      const token = getToken();
 
       if (!token) {
         if (isActive) {
@@ -25,21 +32,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       }
 
       try {
-        const response = await fetch("http://localhost:8000/auth/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await fetch(`${API_URL}/auth/me`, { headers: authHeaders(token) });
 
         if (isActive) {
           if (response.ok) {
             setIsAuthenticated(true);
           } else {
-            localStorage.removeItem("access_token");
+            clearToken();
           }
         }
       } catch (error) {
         console.error("Unable to verify the saved login session:", error);
         if (isActive) {
-          localStorage.removeItem("access_token");
+          clearToken();
         }
       } finally {
         if (isActive) {
